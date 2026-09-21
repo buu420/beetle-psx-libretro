@@ -1,0 +1,226 @@
+{
+  "serial": "SLUS_011.93",
+  "overlay_signatures": [
+    {
+      "name": "STAG0000",
+      "tag": "0x00000190",
+      "file_index": 400,
+      "load_base": "0x80063360",
+      "size": 26624,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x80063ADC", "0x80063B30", "0x80063B94", "0x80063BEC"],
+      "evidence": ["Ghidra STAG0000 @ 0x80063360; native resource overlay file 0x0190"]
+    },
+    {
+      "name": "STAG1000",
+      "tag": "0x00000191",
+      "file_index": 401,
+      "load_base": "0x80063360",
+      "size": 12288,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x4345444D", "0x7365725F", "0x61623A74", "0x706F2064"],
+      "evidence": ["Ghidra STAG1000 @ 0x80063360; native resource overlay file 0x0191"]
+    },
+    {
+      "name": "STAG1100",
+      "tag": "0x00000D1E",
+      "file_index": 3358,
+      "load_base": "0x80063360",
+      "size": 22528,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x80064B70", "0x80064BCC", "0x80064BCC", "0x80064B88"],
+      "evidence": ["Ghidra STAG1100 @ 0x80063360; native resource overlay file 0x0D1E"]
+    },
+    {
+      "name": "STAG2000",
+      "tag": "0x00000192",
+      "file_index": 402,
+      "load_base": "0x80063360",
+      "size": 57344,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x80064078", "0x80064134", "0x80064264", "0x800642C4"],
+      "evidence": ["Ghidra STAG2000 @ 0x80063360; native resource overlay file 0x0192"]
+    },
+    {
+      "name": "STAG3000",
+      "tag": "0x00000193",
+      "file_index": 403,
+      "load_base": "0x80063360",
+      "size": 69632,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x80063D04", "0x80063D04", "0x80063D04", "0x80063D04"],
+      "evidence": ["Ghidra STAG3000 @ 0x80063360; native resource overlay file 0x0193"]
+    },
+    {
+      "name": "STAG3500",
+      "tag": "0x00000D4D",
+      "file_index": 3405,
+      "load_base": "0x80063360",
+      "size": 32768,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x8006380C", "0x8006380C", "0x8006380C", "0x8006380C"],
+      "evidence": ["Ghidra STAG3500 @ 0x80063360; native resource overlay file 0x0D4D"]
+    },
+    {
+      "name": "STAG4000",
+      "tag": "0x0000019A",
+      "file_index": 410,
+      "load_base": "0x80063360",
+      "size": 65536,
+      "signature_address": "0x80063360",
+      "signature_words": ["0x01FB01F8", "0x01F501FE", "0x02050202", "0x01FC01F9"],
+      "evidence": ["Ghidra STAG4000 @ 0x80063360; native resource overlay file 0x019A"]
+    }
+  ],
+  "probe_rules": [
+    {
+      "pc": "0x800138C0",
+      "overlay_tag": "0x00000000",
+      "context": "list",
+      "adapter": "grid",
+      "task_reg": 4,
+      "focus_reg": 255,
+      "label_reg": 255,
+      "detail_reg": 5,
+      "focus_min": 0,
+      "focus_max": 255,
+      "flags": "0x00000010",
+      "evidence": ["Ghidra common native cursor update @ 0x800138C0; trace event=dw2_menu_probe"]
+    },
+    {
+      "pc": "0x8001ACD4",
+      "overlay_tag": "0x00000000",
+      "context": "dialogue_choice",
+      "adapter": "dialogue_choice",
+      "task_reg": 18,
+      "focus_reg": 255,
+      "label_reg": 17,
+      "detail_reg": 22,
+      "focus_min": 0,
+      "focus_max": 255,
+      "flags": "0x00000031",
+      "evidence": ["Ghidra SLUS_011.93 @ 0x8001ACD4; trace event=dw2_dialog_probe"]
+    },
+    {
+      "pc": "0x800128F4",
+      "overlay_tag": "0x00000000",
+      "context": "name_entry",
+      "adapter": "name_entry",
+      "task_reg": 17,
+      "focus_reg": 255,
+      "label_reg": 255,
+      "detail_reg": 255,
+      "focus_min": 0,
+      "focus_max": 87,
+      "flags": "0x00000031",
+      "evidence": ["Ghidra SLUS_011.93 @ 0x800128F4; trace event=dw2_name_entry_probe"]
+    },
+    {
+      "pc": "0x800129A8",
+      "overlay_tag": "0x00000000",
+      "context": "name_entry",
+      "adapter": "name_entry",
+      "task_reg": 20,
+      "focus_reg": 255,
+      "label_reg": 255,
+      "detail_reg": 255,
+      "focus_min": 0,
+      "focus_max": 87,
+      "flags": "0x00000031",
+      "evidence": ["Ghidra SLUS_011.93 @ 0x800129A8; trace event=dw2_name_entry_probe"]
+    }
+  ],
+  "contexts": [
+    {"id": 0, "name": "none"},
+    {"id": 1, "name": "system"},
+    {"id": 2, "name": "domain_select"},
+    {"id": 3, "name": "domain_circle"},
+    {"id": 4, "name": "list"},
+    {"id": 5, "name": "prompt"},
+    {"id": 6, "name": "battle"},
+    {"id": 7, "name": "name_entry"},
+    {"id": 8, "name": "dialogue_choice"}
+  ],
+  "icon_labels": {
+    "0x01FD0061": "Status",
+    "0x01FD0062": "Items",
+    "0x01FD0063": "Digimon",
+    "0x01FD0064": "Digi-Line",
+    "0x01FD0065": "Transfer",
+    "0x01FD0066": "Save",
+    "0x01FD0067": "Auto-Pilot"
+  },
+  "adapters": [
+    {
+      "id": 0,
+      "name": "indexed",
+      "context": "list",
+      "overlay_tag": "0x00000000",
+      "cursor_min": 0,
+      "cursor_max": 255,
+      "sites": ["0x800239A0"],
+      "evidence": ["Ghidra SLUS_011.93 shared resolver @ 0x800239A0; native resource 0x01FD"]
+    },
+    {
+      "id": 1,
+      "name": "domain_map",
+      "context": "domain_select",
+      "overlay_tag": "0x00000192",
+      "cursor_min": 0,
+      "cursor_max": 255,
+      "sites": ["0x80067B20", "0x80067E9C"],
+      "evidence": ["Ghidra STAG2000 task 0x0306 update @ 0x80067B20 and handler @ 0x80067E9C; native resource overlay file 0x0192"]
+    },
+    {
+      "id": 2,
+      "name": "domain_circle",
+      "context": "domain_circle",
+      "overlay_tag": "0x00000000",
+      "cursor_min": 0,
+      "cursor_max": 5,
+      "sites": ["0x80013A70", "0x80013C04"],
+      "evidence": ["Ghidra common task 0x000B cursor @ 0x80013A70 and update @ 0x80013C04; native resource 0x05130003 maps IDs 0x01FD0061 through 0x01FD0067"]
+    },
+    {
+      "id": 3,
+      "name": "grid",
+      "context": "list",
+      "overlay_tag": "0x00000000",
+      "cursor_min": 0,
+      "cursor_max": 255,
+      "sites": ["0x800239A0"],
+      "evidence": ["Ghidra SLUS_011.93 @ 0x800239A0; native resource 0x01FD"]
+    },
+    {
+      "id": 4,
+      "name": "battle",
+      "context": "battle",
+      "overlay_tag": "0x00000193",
+      "cursor_min": 0,
+      "cursor_max": 255,
+      "sites": ["0x80064A78"],
+      "evidence": ["Ghidra STAG3000 @ 0x80064A78; native resource IDs 0x01FD0002 through 0x01FD0006 and trace event=ram_write_watch"]
+    },
+    {
+      "id": 5,
+      "name": "name_entry",
+      "context": "name_entry",
+      "overlay_tag": "0x00000000",
+      "cursor_min": 0,
+      "cursor_max": 87,
+      "sites": ["0x800128F4", "0x80012914", "0x800129A8"],
+      "evidence": ["Ghidra SLUS_011.93 @ 0x800128F4; trace event=dw2_name_entry_probe"]
+    },
+    {
+      "id": 6,
+      "name": "dialogue_choice",
+      "context": "dialogue_choice",
+      "overlay_tag": "0x00000000",
+      "cursor_min": 0,
+      "cursor_max": 255,
+      "sites": ["0x8001ACD4"],
+      "evidence": ["Ghidra SLUS_011.93 @ 0x8001ACD4; trace event=dw2_dialog_probe"]
+    }
+  ],
+  "coverage_exclusions": []
+}

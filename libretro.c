@@ -19,6 +19,10 @@
 #include "libretro_options.h"
 #include "input.h"
 #include "osd_message.h"
+#include "accessibility_speech.h"
+#include "accessibility_boot.h"
+#include "accessibility_game.h"
+#include "accessibility_trace.h"
 
 retro_input_state_t dbg_input_state_cb = 0;
 
@@ -85,6 +89,41 @@ static retro_audio_sample_t audio_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
+
+static void RETRO_CALLCONV accessibility_keyboard_event(bool down,
+      unsigned keycode, uint32_t character, uint16_t key_modifiers)
+{
+   (void)character;
+   (void)key_modifiers;
+   beetle_accessibility_game_keyboard_event(down, keycode);
+}
+
+static bool accessibility_frame_has_audio(void)
+{
+   int audio_video_flags = 3;
+
+   if (environ_cb && environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE,
+            &audio_video_flags))
+      return (audio_video_flags & 2) != 0;
+   return true;
+}
+
+static int accessibility_savestate_context(void)
+{
+   int context = RETRO_SAVESTATE_CONTEXT_NORMAL;
+
+   if (environ_cb)
+      environ_cb(RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT, &context);
+   return context;
+}
+
+static bool accessibility_savestate_context_is_internal(int context)
+{
+   return context == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_INSTANCE
+      || context == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_BINARY
+      || context == RETRO_SAVESTATE_CONTEXT_ROLLBACK_NETPLAY;
+}
+
 static unsigned frame_count = 0;
 static unsigned internal_frame_count = 0;
 static bool display_internal_framerate = false;
@@ -1860,6 +1899,9 @@ static const char *CalcDiscSCEx_BySYSTEMCNF(CDIF *c, unsigned *rr)
                { "SLPS_029.24", 3 }, /* NTSC-J [Value 1500] */
             };
             unsigned k;
+            beetle_accessibility_game_set_serial(bootpos);
+            beetle_accessibility_trace_set_serial(bootpos);
+
             for (k = 0; k < sizeof(cd_speedup_compat_table) / sizeof(cd_speedup_compat_table[0]); k++)
             {
                if (!strncmp(bootpos, cd_speedup_compat_table[k].serial, 11))
@@ -2813,9 +2855,12 @@ static void InitCommon(const bool EmulateMemcards, const bool WantPIOMem)
       Memcard_SaveDelay[i] = -1;
    }
 
-	input_init_calibration();
+   input_init_calibration();
 
    PSX_Power();
+   beetle_accessibility_boot_reset(psx_skipbios != 0);
+   beetle_accessibility_game_reset();
+   beetle_accessibility_trace_reset("power");
 }
 
 static bool LoadEXE(const uint8_t *data, const uint32_t size, bool ignore_pcsp)
@@ -3331,9 +3376,15 @@ static void DoSimpleCommand(int cmd)
    {
       case MDFN_MSC_RESET:
          PSX_Power();
+         beetle_accessibility_boot_reset(psx_skipbios != 0);
+         beetle_accessibility_game_reset();
+         beetle_accessibility_trace_reset("reset");
          break;
       case MDFN_MSC_POWER:
          PSX_Power();
+         beetle_accessibility_boot_reset(psx_skipbios != 0);
+         beetle_accessibility_game_reset();
+         beetle_accessibility_trace_reset("power");
          break;
       case MDFN_MSC_INSERT_DISK:
          CDInsertEject();
@@ -3837,6 +3888,8 @@ void retro_init(void)
 
    libretro_msg_interface_version = 0;
    environ_cb(RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION, &libretro_msg_interface_version);
+
+   beetle_accessibility_speak("Beetle PSX accessibility bridge ready.", 10, "core");
 
    setting_initial_scanline = 0;
    setting_last_scanline = 239;
@@ -5141,6 +5194,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    extract_basename(retro_cd_base_name,       info->path, sizeof(retro_cd_base_name));
    extract_directory(retro_cd_base_directory, info->path, sizeof(retro_cd_base_directory));
+   beetle_accessibility_trace_configure(retro_save_directory);
 
    r = snprintf(tocbasepath, sizeof(tocbasepath), "%s%c%s.toc", retro_cd_base_directory, retro_slash, retro_cd_base_name);
 
@@ -5323,6 +5377,8 @@ void retro_unload_game(void)
    MDFNMP_Kill();
 
    clear_disc_state();
+   beetle_accessibility_game_set_serial(NULL);
+   beetle_accessibility_trace_close();
 
    retro_cd_base_directory[0] = '\0';
    retro_cd_path[0]           = '\0';
@@ -5348,6 +5404,7 @@ static bool retro_set_system_av_info(void)
 void retro_run(void)
 {
    bool updated = false;
+   bool accessibility_frame_enabled;
    static int32_t rects[MEDNAFEN_CORE_GEOMETRY_MAX_H];
    EmulateSpecStruct spec = {0};
    EmulateSpecStruct *espec;
@@ -5364,6 +5421,14 @@ void retro_run(void)
     * unconditional PSX_CPU->Run / PSX_FIO->UpdateInput calls below. */
    if (!PSX_CPU || !PSX_FIO || !PSX_CDC)
       return;
+
+   /* Single-instance run-ahead disables both audio and video for its
+    * speculative frames. Two-instance run-ahead keeps audio on the primary
+    * instance and video on the secondary one. Following the audio timeline
+    * keeps native speech state on the one non-speculative gameplay path. */
+   accessibility_frame_enabled = accessibility_frame_has_audio();
+   beetle_accessibility_game_set_frame_enabled(
+         accessibility_frame_enabled);
 
    rhi_intf_prepare_frame();
 
@@ -5544,6 +5609,8 @@ void retro_run(void)
       input_poll_cb();
 
    input_update(libretro_supports_bitmasks, input_state_cb);
+   beetle_accessibility_game_input(input_state_cb);
+   beetle_accessibility_trace_input(input_state_cb);
 
    rects[0] = ~0;
 
@@ -5588,6 +5655,11 @@ void retro_run(void)
    FrontIO_ResetTS(PSX_FIO);
 
    RebaseTS(timestamp);
+
+   if (accessibility_frame_enabled)
+      beetle_accessibility_boot_frame();
+   beetle_accessibility_game_frame(MainRAM->data8, 1024 * 2048);
+   beetle_accessibility_trace_frame(MainRAM->data8, 1024 * 2048);
 
    // Save memcards if dirty.
    {
@@ -5785,8 +5857,14 @@ void retro_run(void)
          fb = pix;
    }
 
+   beetle_accessibility_trace_video(fb, width, height,
+         MEDNAFEN_CORE_GEOMETRY_MAX_W << (2 + upscale_shift),
+         GPU_get_display_possibly_dirty() || (GPU_get_display_change_count() != 0));
+
    rhi_intf_finalize_frame(fb, width, height,
 		   MEDNAFEN_CORE_GEOMETRY_MAX_W << (2 + upscale_shift));
+
+   beetle_accessibility_trace_audio(&IntermediateBuffer[0][0], spec.SoundBufSize);
 
    if (audio_batch_cb)
       audio_batch_cb(&IntermediateBuffer[0][0], spec.SoundBufSize);
@@ -5918,7 +5996,12 @@ void retro_set_environment(retro_environment_t cb)
 {
    struct retro_vfs_interface_info vfs_iface_info;
    struct retro_led_interface led_interface;
+   struct retro_keyboard_callback keyboard_callback;
    environ_cb = cb;
+
+   keyboard_callback.callback = accessibility_keyboard_event;
+   environ_cb(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK,
+         &keyboard_callback);
 
    libretro_supports_option_categories = false;
    libretro_set_core_options(environ_cb, &libretro_supports_option_categories);
@@ -6070,6 +6153,7 @@ bool retro_unserialize(const void *data, size_t size)
 {
    StateMem st;
    bool okay;
+   int savestate_context;
 
    /* Frontends should only call this when a game is loaded, but be
     * defensive: MDFNSS_LoadSM walks every subsystem's StateAction
@@ -6077,6 +6161,7 @@ bool retro_unserialize(const void *data, size_t size)
    if (!data || size == 0 || !MainRAM || !PSX_CDC || !PSX_CPU || !PSX_FIO)
       return false;
 
+   savestate_context = accessibility_savestate_context();
    st.data           = (uint8_t*)data;
    st.loc            = 0;
    st.len            = size;
@@ -6086,6 +6171,9 @@ bool retro_unserialize(const void *data, size_t size)
    FastSaveStates = UsingFastSavestates();
    okay           = MDFNSS_LoadSM(&st, 0, 0);
    FastSaveStates = false;
+   if (okay && !accessibility_savestate_context_is_internal(
+            savestate_context))
+      beetle_accessibility_game_state_discontinuity();
    return okay;
 }
 

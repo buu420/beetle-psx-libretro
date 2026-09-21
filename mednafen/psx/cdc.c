@@ -53,6 +53,7 @@
 #include "cdc.h"
 #include "spu.h"
 
+#include "../../accessibility_game.h"
 #include "../mednafen-types.h"
 #include "../../osd_message.h"
 #include "../state_helpers.h"
@@ -1332,6 +1333,8 @@ void PS_CDC_HandlePlayRead(PS_CDC *cdc)
       /* Same intentional-discard contract as above. */
       (void)CDIF_ReadRawSector(cdc->Cur_CDIF, target, cdc->CurSector, -1);
    }
+
+   beetle_accessibility_game_disc_sector((uint32_t)cdc->CurSector);
 
    PS_CDC_DecodeSubQ(cdc, target + 2352);
 

@@ -36,6 +36,9 @@
 #include "../math_ops.h"
 #include "../mednafen.h"
 #include "../../osd_message.h"
+#include "../../accessibility_game.h"
+#include "../../accessibility_dw2_menu_profile.h"
+#include "../../accessibility_trace.h"
 
 /* PGXP */
 #include "../pgxp/pgxp_cpu.h"
@@ -109,6 +112,8 @@ static uint32_t          cpu_IPCache;
 static uint32_t          cpu_BIU;
 static bool              cpu_Halted;
 static CPU_CP0           cpu_CP0;
+static uint32_t          cpu_accessibility_current_pc;
+static uint32_t          cpu_accessibility_dw2_name_state;
 #ifdef HAVE_LIGHTREC
 /* cache_buf shadows the first 64KB of MainRAM while the cache-isolated
  * (CP0 SR bit 16) bit is set, so reads return from the cache snapshot
@@ -359,6 +364,7 @@ void CPU_Power(PS_CPU *self)
    CPU_RecalcIPCache();
 
    BIU = 0;
+   cpu_accessibility_dw2_name_state = 0;
 
    memset(ScratchRAM->data8, 0, 1024);
 
@@ -628,6 +634,8 @@ static INLINE void WriteMemory_u8(int32_t *timestamp, uint32_t address, uint32_t
    if (MDFN_LIKELY(!(CP0.SR & 0x10000)))
    {
       address &= addr_mask[address >> 29];
+      beetle_accessibility_trace_ram_write(cpu_accessibility_current_pc,
+            address, value, 1, "cpu_interpreter");
 
       if (address >= 0x1F800000 && address <= 0x1F8003FF)
       {
@@ -649,6 +657,8 @@ static INLINE void WriteMemory_u16(int32_t *timestamp, uint32_t address, uint32_
    if (MDFN_LIKELY(!(CP0.SR & 0x10000)))
    {
       address &= addr_mask[address >> 29];
+      beetle_accessibility_trace_ram_write(cpu_accessibility_current_pc,
+            address, value, 2, "cpu_interpreter");
 
       if (address >= 0x1F800000 && address <= 0x1F8003FF)
       {
@@ -670,6 +680,8 @@ static INLINE void WriteMemory_u32(int32_t *timestamp, uint32_t address, uint32_
    if (MDFN_LIKELY(!(CP0.SR & 0x10000)))
    {
       address &= addr_mask[address >> 29];
+      beetle_accessibility_trace_ram_write(cpu_accessibility_current_pc,
+            address, value, DS24 ? 3 : 4, "cpu_interpreter");
 
       if (address >= 0x1F800000 && address <= 0x1F8003FF)
       {
@@ -910,6 +922,35 @@ static int32_t CPU_RunReal(PS_CPU *self, int32_t timestamp_in)
    }
 
    instr = ReadInstruction(&timestamp, PC);
+   cpu_accessibility_current_pc = PC;
+   {
+      uint32_t dw2_overlay_tag =
+         beetle_accessibility_game_dw2_overlay_tag_for_pc(PC);
+      if (beetle_accessibility_dw2_menu_rule_lookup(PC, dw2_overlay_tag))
+         beetle_accessibility_game_cpu_menu_probe(PC, GPR, 32);
+   }
+   /* FB page wait and F8 00 choice wait, after their text is rendered. */
+   if (PC == 0x8001ACD4 || PC == 0x8001B0D8)
+   {
+      beetle_accessibility_game_cpu_dialog_state(GPR[18]);
+      beetle_accessibility_trace_cpu_dialog_probe(PC,
+            GPR[17], GPR[18], GPR[22], GPR[29], GPR[30],
+            MainRAM ? MainRAM->data8 : NULL, MainRAM ? MainRAM->size : 0);
+   }
+   if (PC == 0x800128F4)
+      cpu_accessibility_dw2_name_state = GPR[17];
+   if (PC == 0x800129A8)
+      beetle_accessibility_game_cpu_name_entry_active(GPR[20]);
+   if (PC == 0x80012914)
+   {
+      uint32_t selected = LDWhich == 2 ? LDValue : GPR[2];
+      beetle_accessibility_game_cpu_name_entry_selection(
+            cpu_accessibility_dw2_name_state, (uint8_t)selected);
+      beetle_accessibility_trace_cpu_name_entry_probe(PC,
+            cpu_accessibility_dw2_name_state,
+            selected,
+            MainRAM ? MainRAM->data8 : NULL, MainRAM ? MainRAM->size : 0);
+   }
 
 
    // 

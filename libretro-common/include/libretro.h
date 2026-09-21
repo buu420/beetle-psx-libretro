@@ -1341,6 +1341,12 @@ enum retro_mod
                                             * fallback, stderr).
                                             */
 
+#define RETRO_ENVIRONMENT_ACCESSIBILITY_SPEAK (95 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+                                           /* const struct retro_accessibility_speech * --
+                                            * Speaks text through the frontend's native accessibility
+                                            * backend, if available.
+                                            */
+
 #define RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS 61
                                            /* unsigned * --
                                             * Unsigned value is the number of active input devices
@@ -3162,6 +3168,14 @@ struct retro_message_ext
     * such that the message intent remains clear when displayed
     * as a standard frontend-generated notification */
    int8_t progress;
+};
+
+struct retro_accessibility_speech
+{
+   const char *text;
+   int priority;
+   const char *channel;
+   unsigned flags;
 };
 
 /* Describes how the libretro implementation maps a libretro input bind

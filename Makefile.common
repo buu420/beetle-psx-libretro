@@ -174,7 +174,19 @@ ifeq ($(HAVE_LIGHTREC), 1)
 endif
 
    SOURCES_C += $(CORE_DIR)/libretro_cbs.c \
-                $(CORE_DIR)/beetle_psx_globals.c \
+                 $(CORE_DIR)/accessibility_speech.c \
+                 $(CORE_DIR)/accessibility_boot.c \
+                 $(CORE_DIR)/accessibility_game.c \
+                 $(CORE_DIR)/accessibility_dw2_text.c \
+                 $(CORE_DIR)/accessibility_dw2_profile.c \
+                 $(CORE_DIR)/accessibility_dw2_menu_profile.c \
+                 $(CORE_DIR)/accessibility_dw2_menu.c \
+                 $(CORE_DIR)/accessibility_dw2_domain_menu.c \
+                 $(CORE_DIR)/accessibility_dw2_navigation.c \
+	$(CORE_DIR)/accessibility_dw2_story.c \
+	$(CORE_DIR)/accessibility_dw2_npc.c \
+                 $(CORE_DIR)/accessibility_trace.c \
+                 $(CORE_DIR)/beetle_psx_globals.c \
                 $(CORE_EMU_DIR)/cpu.c \
                 $(CORE_EMU_DIR)/cdc.c \
                 $(CORE_EMU_DIR)/frontio.c \
