@@ -110,6 +110,16 @@ static char dw2_spoken_name_focus[32];
 static uint16_t dw2_spoken_name_column;
 static uint16_t dw2_spoken_name_row;
 static bool dw2_navigation_keys_down[DIGIMON_WORLD_2_NAVIGATION_KEY_COUNT];
+static bool dw2_controller_navigation_enabled = true;
+static struct
+{
+   uint16_t previous;
+   uint16_t latched;
+   uint16_t blocked;
+   uint8_t latched_axes;
+   uint8_t blocked_axes;
+   unsigned direction_frames[4];
+} dw2_controller;
 static const uint8_t *dw2_main_ram;
 static size_t dw2_main_ram_size;
 static uint32_t dw2_active_overlay_tag;
@@ -978,6 +988,7 @@ void beetle_accessibility_game_reset(void)
    dw2_captured_menu_probe_count = 0;
    memset(dw2_navigation_keys_down, 0,
          sizeof(dw2_navigation_keys_down));
+   memset(&dw2_controller, 0, sizeof(dw2_controller));
    beetle_accessibility_dw2_menu_reset();
    beetle_accessibility_dw2_navigation_reset();
    reset_dw2_dialog_tracking();
@@ -996,6 +1007,132 @@ void beetle_accessibility_game_set_frame_enabled(bool enabled)
       dw2_captured_menu_probe_count = 0;
 }
 
+void beetle_accessibility_game_set_controller_navigation(bool enabled)
+{
+   if (dw2_controller_navigation_enabled != enabled)
+      memset(&dw2_controller, 0, sizeof(dw2_controller));
+   dw2_controller_navigation_enabled = enabled;
+}
+
+static void dw2_controller_input(retro_input_state_t input_state_cb)
+{
+   /* Physical positions match the DS/VBA-M layer: Y is the LEFT face
+    * button (Square / Xbox X), X is the TOP face button (Triangle / Xbox Y). */
+   static const struct
+   {
+      unsigned button;
+      beetle_dw2_navigation_command_t command;
+   } bindings[] = {
+      { RETRO_DEVICE_ID_JOYPAD_LEFT,  BEETLE_DW2_NAV_COMMAND_PREVIOUS_CATEGORY },
+      { RETRO_DEVICE_ID_JOYPAD_RIGHT, BEETLE_DW2_NAV_COMMAND_NEXT_CATEGORY },
+      { RETRO_DEVICE_ID_JOYPAD_UP,    BEETLE_DW2_NAV_COMMAND_PREVIOUS_TARGET },
+      { RETRO_DEVICE_ID_JOYPAD_DOWN,  BEETLE_DW2_NAV_COMMAND_NEXT_TARGET },
+      { RETRO_DEVICE_ID_JOYPAD_Y,     BEETLE_DW2_NAV_COMMAND_REPEAT },
+      { RETRO_DEVICE_ID_JOYPAD_L3,    BEETLE_DW2_NAV_COMMAND_START_ROUTE },
+      { RETRO_DEVICE_ID_JOYPAD_X,     BEETLE_DW2_NAV_COMMAND_LOCATION }
+   };
+   uint16_t buttons;
+   uint16_t held;
+   uint16_t pressed;
+   uint8_t held_axes = 0;
+   unsigned i;
+   bool active;
+
+   if (!input_state_cb || !is_digimon_world_2
+         || !dw2_controller_navigation_enabled)
+   {
+      memset(&dw2_controller, 0, sizeof(dw2_controller));
+      return;
+   }
+
+   /* Individual IDs work without negotiating GET_INPUT_BITMASKS. The game's
+    * input_update still uses its negotiated mask/per-button path below. */
+   buttons = 0;
+   for (i = 0; i < 16; i++)
+      if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, i))
+         buttons |= (uint16_t)(1u << i);
+   active = (buttons & (1u << RETRO_DEVICE_ID_JOYPAD_L2)) != 0;
+
+   /* Pressure-sensitive buttons must be released too, even below the
+    * frontend's digital threshold. No pressure value is used as a command. */
+   held = buttons;
+   for (i = 0; i < 16; i++)
+      if (input_state_cb(0, RETRO_DEVICE_ANALOG,
+               RETRO_DEVICE_INDEX_ANALOG_BUTTON, i) > 0)
+         held |= (uint16_t)(1u << i);
+   for (i = 0; i < 4; i++)
+   {
+      int value = input_state_cb(0, RETRO_DEVICE_ANALOG, i / 2, i % 2);
+      /* A small neutral zone lets a real stick release despite center drift.
+       * This is only a release threshold, not a new gameplay dead zone. */
+      if (value < -4096 || value > 4096)
+         held_axes |= (uint8_t)(1u << i);
+   }
+
+   dw2_controller.blocked = active ? 0xffffu : dw2_controller.latched & held;
+   dw2_controller.blocked_axes = active ? 0x0fu
+      : dw2_controller.latched_axes & held_axes;
+
+   /* Input ownership follows physical samples even in a secondary runahead
+    * core, which may never run an audio-enabled frame. Otherwise its video
+    * would receive a still-held direction as soon as L2 was released. */
+   dw2_controller.latched = active ? held : dw2_controller.blocked;
+   dw2_controller.latched_axes = active ? held_axes : dw2_controller.blocked_axes;
+   /* Speculation must not consume command edges or age repeat timers. */
+   if (!dw2_frame_enabled)
+      return;
+   pressed = buttons & ~dw2_controller.previous;
+   dw2_controller.previous = active ? buttons : 0;
+
+   for (i = 0; i < sizeof(bindings) / sizeof(bindings[0]); i++)
+   {
+      uint16_t bit = (uint16_t)(1u << bindings[i].button);
+      bool fire = active && (pressed & bit);
+
+      if (i < 4)
+      {
+         if (!active || !(buttons & bit))
+            dw2_controller.direction_frames[i] = 0;
+         else if (++dw2_controller.direction_frames[i] == 32)
+         {
+            /* Same 26-frame delay / 6-frame repeat cadence as VBA-M. */
+            dw2_controller.direction_frames[i] = 26;
+            fire = true;
+         }
+      }
+      if (fire)
+         beetle_accessibility_dw2_navigation_command(bindings[i].command);
+   }
+}
+
+int16_t beetle_accessibility_game_filter_input(retro_input_state_t input_state_cb,
+      unsigned port, unsigned device, unsigned index, unsigned id)
+{
+   if (!input_state_cb)
+      return 0;
+   if (is_digimon_world_2 && dw2_controller_navigation_enabled && port == 0)
+   {
+      if (device == RETRO_DEVICE_JOYPAD && index == 0)
+      {
+         if (id == RETRO_DEVICE_ID_JOYPAD_MASK)
+            return (int16_t)((uint16_t)input_state_cb(port, device, index, id)
+                  & ~dw2_controller.blocked);
+         if (id < 16 && (dw2_controller.blocked & (1u << id)))
+            return 0;
+      }
+      else if (device == RETRO_DEVICE_ANALOG)
+      {
+         if (index == RETRO_DEVICE_INDEX_ANALOG_BUTTON && id < 16
+               && (dw2_controller.blocked & (1u << id)))
+            return 0;
+         if (index < 2 && id < 2
+               && (dw2_controller.blocked_axes & (1u << (index * 2 + id))))
+            return 0;
+      }
+   }
+   return input_state_cb(port, device, index, id);
+}
+
 void beetle_accessibility_game_input(retro_input_state_t input_state_cb)
 {
    static const unsigned navigation_keys[] = {
@@ -1009,10 +1146,12 @@ void beetle_accessibility_game_input(retro_input_state_t input_state_cb)
    bool start_down;
    size_t navigation_key_index;
 
+   dw2_controller_input(input_state_cb);
    if (!is_digimon_world_2 || !dw2_frame_enabled || !input_state_cb)
       return;
 
-   start_down = input_state_cb(0, RETRO_DEVICE_JOYPAD, 0,
+   start_down = beetle_accessibility_game_filter_input(input_state_cb,
+         0, RETRO_DEVICE_JOYPAD, 0,
          RETRO_DEVICE_ID_JOYPAD_START) != 0;
 
    /* Poll the frontend's raw keyboard state on the same frame boundary as

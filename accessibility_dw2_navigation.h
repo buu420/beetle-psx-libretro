@@ -50,7 +50,8 @@ typedef enum beetle_dw2_navigation_command
    BEETLE_DW2_NAV_COMMAND_PREVIOUS_TARGET,
    BEETLE_DW2_NAV_COMMAND_NEXT_TARGET,
    BEETLE_DW2_NAV_COMMAND_REPEAT,
-   BEETLE_DW2_NAV_COMMAND_START_ROUTE
+   BEETLE_DW2_NAV_COMMAND_START_ROUTE,
+   BEETLE_DW2_NAV_COMMAND_LOCATION
 } beetle_dw2_navigation_command_t;
 
 typedef struct beetle_dw2_navigation_target
@@ -77,6 +78,7 @@ typedef struct beetle_dw2_navigation_snapshot
    int16_t player_x;
    int16_t player_y;
    bool player_settled;
+   bool player_position_unavailable;
    bool approach_eight_way;
    bool preferred_direction_valid;
    uint8_t preferred_direction;

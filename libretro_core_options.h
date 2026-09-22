@@ -672,6 +672,20 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
 #endif
    {
+      BEETLE_OPT(dw2_controller_navigation),
+      "DW2 Controller Navigation",
+      NULL,
+      "Digimon World 2 (USA): hold L2/left trigger on port 1 for navigation. D-pad Left/Right changes category, Up/Down changes target, L3 starts/stops guidance, left face button repeats the target, and top face button reads location and coordinates. Release the shortcut buttons and sticks before resuming play. Keyboard navigation works with this option disabled.",
+      NULL,
+      "input",
+      {
+         { "enabled",  NULL },
+         { "disabled", NULL },
+         { NULL, NULL },
+      },
+      "enabled"
+   },
+   {
       BEETLE_OPT(analog_calibration),
       "Analog Self-Calibration",
       NULL,

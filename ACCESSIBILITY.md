@@ -47,6 +47,29 @@ Follow the upstream README for general dependencies and other platforms.
 
 ## Navigation controls
 
+Controller navigation uses the same left-trigger layer as the accessible DS and
+VBA-M cores. On **player 1's controller**, hold **L2 / left trigger**, then:
+
+| Button while holding L2 | Action |
+| --- | --- |
+| D-pad Left / Right | Previous / next category |
+| D-pad Up / Down | Previous / next target |
+| Left-stick click (L3) | Start or stop guidance |
+| Left face button (PlayStation Square / Xbox X) | Repeat target or current direction |
+| Top face button (PlayStation Triangle / Xbox Y) | Read location and coordinates |
+
+Held D-pad directions repeat. Release the buttons and center the sticks after a
+shortcut; a control held when L2 is released stays blocked until you release it,
+so the shortcut cannot also move the player or select a game menu option.
+Coordinates are read from settled player positions; selection screens without
+a walkable position report that coordinates are unavailable.
+
+**Core Options > Input > DW2 Controller Navigation** enables this layer by
+default for the USA game. Disable it to return L2 to ordinary gameplay. This
+option does not affect other games or the keyboard shortcuts below. Controller
+bindings follow RetroPad positions after any frontend remapping. RetroArch's own
+hotkey bindings still apply; avoid assigning frontend actions to these chords.
+
 - Home / End: change the navigation category.
 - Page Up / Page Down: change the selected target.
 - Delete: repeat the current target or guidance direction.
@@ -55,6 +78,11 @@ Follow the upstream README for general dependencies and other platforms.
 Game Focus may be needed so RetroArch passes keyboard input to the core. Story
 guidance uses direct floor portals and mapped mission encounters on final floors.
 NPCs, enemies, and available objects are listed for the current area or floor.
+
+The native controller regression harness can be run after generating the message
+table with `python -m unittest discover -s tests -p test_dw2_controller.py -v`.
+It requires GCC (MSYS2 MinGW-w64 on Windows) and checks command mappings, input
+consumption/release, analog sticks, runahead, title Start, and guidance cancellation.
 
 ## Development status
 

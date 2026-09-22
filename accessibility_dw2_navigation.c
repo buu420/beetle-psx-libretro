@@ -932,6 +932,8 @@ static bool dw2_native_city_snapshot(const uint8_t *ram, size_t ram_size,
 
    memset(snapshot, 0, sizeof(*snapshot));
    snapshot->context = BEETLE_DW2_NAV_CONTEXT_CITY;
+   snprintf(snapshot->location, sizeof(snapshot->location), "%s",
+         beetle_accessibility_dw2_story_scene_name(scene));
    snapshot->width = DW2_NAV_CITY_GRID_SIZE;
    snapshot->height = DW2_NAV_CITY_GRID_SIZE;
    for (grid_x = 0; grid_x < DW2_NAV_CITY_GRID_SIZE; grid_x++)
@@ -2403,6 +2405,10 @@ void beetle_accessibility_dw2_navigation_frame(const uint8_t *main_ram,
          snapshot.context=BEETLE_DW2_NAV_CONTEXT_CITY;
          snapshot.width=1; snapshot.height=1;
          snapshot.player_settled=true;
+         snapshot.player_position_unavailable=true;
+         snprintf(snapshot.location, sizeof(snapshot.location), "%s",
+               beetle_accessibility_dw2_story_scene_name(
+                  main_ram[DW2_NAV_CITY_SCENE_OFFSET]));
          valid=true;
       }
    }
@@ -2734,6 +2740,24 @@ void beetle_accessibility_dw2_navigation_command(
    size_t ordinal = 0;
    size_t wanted;
 
+   /* Stop also works while moving, in a menu/battle, or between maps. In
+    * particular, story tracking must not silently restart a cancelled route. */
+   if (command == BEETLE_DW2_NAV_COMMAND_START_ROUTE
+         && (dw2_route_active || dw2_pending_start || dw2_resume_pending
+            || dw2_story_tracking))
+   {
+      dw2_route_active = false;
+      dw2_pending_start = false;
+      dw2_pending_repeat = false;
+      dw2_resume_pending = false;
+      dw2_story_tracking = false;
+      dw2_tracked_story_id = 0;
+      dw2_route_length = 0;
+      dw2_route_waiting_obstruction = false;
+      beetle_accessibility_speak("Guidance stopped.", 8, "navigation");
+      return;
+   }
+
    if (dw2_suppressed)
    {
       beetle_accessibility_speak(
@@ -2743,6 +2767,25 @@ void beetle_accessibility_dw2_navigation_command(
    if (!dw2_snapshot_valid)
    {
       dw2_speak("Navigation unavailable here.");
+      return;
+   }
+   if (command == BEETLE_DW2_NAV_COMMAND_LOCATION)
+   {
+      char speech[BEETLE_DW2_NAV_LABEL_MAX + 80];
+      const char *location = dw2_snapshot.context == BEETLE_DW2_NAV_CONTEXT_DOMAIN
+         ? "Domain" : "City";
+
+      if (dw2_snapshot.location[0]
+            && memchr(dw2_snapshot.location, '\0', sizeof(dw2_snapshot.location)))
+         location = dw2_snapshot.location;
+      if (dw2_snapshot.player_position_unavailable)
+         snprintf(speech, sizeof(speech), "%s. Coordinates unavailable here.", location);
+      else if (!dw2_snapshot.player_settled)
+         snprintf(speech, sizeof(speech), "%s. Moving. Stop to read coordinates.", location);
+      else
+         snprintf(speech, sizeof(speech), "%s. X %d, Y %d.", location,
+               (int)dw2_snapshot.player_x, (int)dw2_snapshot.player_y);
+      dw2_speak(speech);
       return;
    }
    category_count = dw2_category_count(dw2_snapshot.context);

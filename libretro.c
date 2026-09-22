@@ -90,6 +90,13 @@ static retro_audio_sample_batch_t audio_batch_cb;
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
 
+static int16_t RETRO_CALLCONV accessibility_filtered_input(unsigned port,
+      unsigned device, unsigned index, unsigned id)
+{
+   return beetle_accessibility_game_filter_input(input_state_cb,
+         port, device, index, id);
+}
+
 static void RETRO_CALLCONV accessibility_keyboard_event(bool down,
       unsigned keycode, uint32_t character, uint16_t key_modifiers)
 {
@@ -4454,6 +4461,12 @@ static void check_variables(bool startup)
       }
    }
 
+   var.key = BEETLE_OPT(dw2_controller_navigation);
+   var.value = NULL;
+   beetle_accessibility_game_set_controller_navigation(
+         !environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var)
+         || !var.value || strcmp(var.value, "disabled") != 0);
+
    var.key = BEETLE_OPT(analog_toggle);
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -5608,8 +5621,8 @@ void retro_run(void)
    if (input_poll_cb)
       input_poll_cb();
 
-   input_update(libretro_supports_bitmasks, input_state_cb);
    beetle_accessibility_game_input(input_state_cb);
+   input_update(libretro_supports_bitmasks, accessibility_filtered_input);
    beetle_accessibility_trace_input(input_state_cb);
 
    rects[0] = ~0;
